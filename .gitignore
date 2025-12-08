@@ -1,41 +1,66 @@
-# Prerequisites
-*.d
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Visual Studio cache/options
+.vs/
+.vscode/
 
-# Precompiled Headers
-*.gch
-*.pch
+# MSBuild Binary and Structured Log
+*.binlog
 
-# Linker files
-*.ilk
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
 
-# Debugger Files
-*.pdb
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# Mono Auto Generated Files
+mono_crash.*
 
-# Fortran module files
-*.mod
-*.smod
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# Folder config file
+Desktop.ini
 
-# Executables
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# VS Code directories
+.vscode/
+
+# Rider
+.idea/
+
+# macOS
+.DS_Store
+
+# Compiled installers and build output (keep source files, exclude binaries)
+*.msi
 *.exe
-*.out
-*.app
+Installer/bin/
+Installer/obj/
 
-# debug information files
-*.dwo
+# Publish output
+publish/

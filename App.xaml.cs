@@ -1,0 +1,1 @@
+using System.Windows; namespace nvGPUMonitor { public partial class App : Application { } }
