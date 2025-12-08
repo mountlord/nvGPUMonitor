@@ -105,7 +105,7 @@ nvGPUMonitor/
 
 ## License
 
-MIT License - See LICENSE file for details
+Vrisber is released under the Apache License 2.0.
 
 ## Version
 
