@@ -110,6 +110,23 @@
     </Border>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <TextBlock Text="Update Interval:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+      <ComboBox x:Name="IntervalComboBox" Width="100" Margin="0,0,16,0" SelectionChanged="IntervalComboBox_SelectionChanged">
+        <ComboBoxItem Content="0.1 sec" Tag="100"/>
+        <ComboBoxItem Content="0.2 sec" Tag="200"/>
+        <ComboBoxItem Content="0.3 sec" Tag="300"/>
+        <ComboBoxItem Content="0.4 sec" Tag="400"/>
+        <ComboBoxItem Content="0.5 sec" Tag="500"/>
+        <ComboBoxItem Content="0.6 sec" Tag="600"/>
+        <ComboBoxItem Content="0.7 sec" Tag="700"/>
+        <ComboBoxItem Content="0.8 sec" Tag="800"/>
+        <ComboBoxItem Content="0.9 sec" Tag="900"/>
+        <ComboBoxItem Content="1.0 sec" Tag="1000" IsSelected="True"/>
+        <ComboBoxItem Content="2.0 sec" Tag="2000"/>
+        <ComboBoxItem Content="3.0 sec" Tag="3000"/>
+        <ComboBoxItem Content="4.0 sec" Tag="4000"/>
+        <ComboBoxItem Content="5.0 sec" Tag="5000"/>
+      </ComboBox>
       <Button Content="Folder To Monitor" Width="140" Margin="4" Click="SelectTempDir_Click"/>
       <Button Content="Start Log" Width="120" Margin="4" Click="StartLog_Click"/>
       <Button Content="Stop Log" Width="120" Margin="4" Click="StopLog_Click"/>

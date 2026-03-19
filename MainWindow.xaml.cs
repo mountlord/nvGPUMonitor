@@ -245,5 +245,21 @@ namespace nvGPUMonitor
 				gauge.InvalidateVisual();
 			}
 		}
+
+        private void IntervalComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            // Don't execute during initialization (before _tick is created)
+            if (_tick == null) return;
+            
+            if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedItem is System.Windows.Controls.ComboBoxItem item)
+            {
+                if (item.Tag is string intervalStr && int.TryParse(intervalStr, out int intervalMs))
+                {
+                    _tick.Stop();
+                    _tick.Interval = intervalMs;
+                    _tick.Start();
+                }
+            }
+        }
     }
 }
