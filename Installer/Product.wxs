@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <?define ProductVersion="1.0.0.0" ?>
+  <?define ProductVersion="0.6.0.0" ?>
   <?define ProductName="nvGPUMonitor" ?>
-  <?define Manufacturer="BySeaTV" ?>
-  <?define UpgradeCode="YOUR-GUID-HERE-1234-5678-9ABC-DEF012345678" ?>
+  <?define Manufacturer="nvGPUMonitor contributors" ?>
+  <?define UpgradeCode="F2038F5D-63D3-46E0-A621-54079172E2B9" ?>
   
   <Product Id="*" 
            Name="$(var.ProductName)" 
@@ -16,7 +16,7 @@
              Compressed="yes" 
              InstallScope="perMachine" 
              Description="NVIDIA GPU Monitor Application"
-             Comments="Monitors GPU, CPU, RAM, and VRAM metrics" />
+             Comments="Monitors GPU, CPU, RAM, VRAM, PCIe, Decoder and Encoder metrics" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
@@ -27,12 +27,13 @@
       <ComponentRef Id="DesktopShortcut" />
     </Feature>
 
-    <!-- UI -->
+    <!-- UI with license agreement -->
     <UIRef Id="WixUI_Minimal" />
-    
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+
     <!-- Icons -->
-    <Icon Id="icon.ico" SourceFile="icon.ico"/>
-    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    <Icon Id="nvGPUMonitor.ico" SourceFile="nvGPUMonitor.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="nvGPUMonitor.ico" />
   </Product>
 
   <Fragment>
@@ -53,27 +54,31 @@
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
       <!-- Main executable -->
       <Component Id="nvGPUMonitorExe" Guid="*">
-        <File Id="nvGPUMonitor.Wpf.exe" 
-              Source="$(var.PublishDir)\nvGPUMonitor.Wpf.exe" 
+        <File Id="nvGPUMonitor.exe" 
+              Source="$(var.PublishDir)\nvGPUMonitor.exe" 
               KeyPath="yes" />
       </Component>
       
       <!-- All DLL files from publish folder -->
       <Component Id="AllDLLs" Guid="*">
-        <File Id="nvGPUMonitor.Wpf.dll" Source="$(var.PublishDir)\nvGPUMonitor.Wpf.dll" />
-        <!-- Add more DLL files as needed -->
+        <File Id="nvGPUMonitor.dll" Source="$(var.PublishDir)\nvGPUMonitor.dll" />
       </Component>
       
       <!-- Runtime config -->
       <Component Id="RuntimeConfig" Guid="*">
-        <File Id="nvGPUMonitor.Wpf.runtimeconfig.json" 
-              Source="$(var.PublishDir)\nvGPUMonitor.Wpf.runtimeconfig.json" />
+        <File Id="nvGPUMonitor.runtimeconfig.json" 
+              Source="$(var.PublishDir)\nvGPUMonitor.runtimeconfig.json" />
       </Component>
       
       <!-- Dependencies config -->
       <Component Id="DepsConfig" Guid="*">
-        <File Id="nvGPUMonitor.Wpf.deps.json" 
-              Source="$(var.PublishDir)\nvGPUMonitor.Wpf.deps.json" />
+        <File Id="nvGPUMonitor.deps.json" 
+              Source="$(var.PublishDir)\nvGPUMonitor.deps.json" />
+      </Component>
+
+      <!-- LICENSE file -->
+      <Component Id="LicenseFile" Guid="*">
+        <File Id="LICENSE" Source="LICENSE" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 
@@ -83,9 +88,9 @@
         <Shortcut Id="ApplicationStartMenuShortcut"
                   Name="nvGPUMonitor"
                   Description="NVIDIA GPU Monitor"
-                  Target="[INSTALLFOLDER]nvGPUMonitor.Wpf.exe"
+                  Target="[INSTALLFOLDER]nvGPUMonitor.exe"
                   WorkingDirectory="INSTALLFOLDER"
-                  Icon="icon.ico" />
+                  Icon="nvGPUMonitor.ico" />
         <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
         <RegistryValue Root="HKCU" 
                        Key="Software\[Manufacturer]\[ProductName]" 
@@ -102,9 +107,9 @@
         <Shortcut Id="ApplicationDesktopShortcut"
                   Name="nvGPUMonitor"
                   Description="NVIDIA GPU Monitor"
-                  Target="[INSTALLFOLDER]nvGPUMonitor.Wpf.exe"
+                  Target="[INSTALLFOLDER]nvGPUMonitor.exe"
                   WorkingDirectory="INSTALLFOLDER"
-                  Icon="icon.ico" />
+                  Icon="nvGPUMonitor.ico" />
         <RemoveFolder Id="CleanUpDesktopShortcut" Directory="DesktopFolder" On="uninstall"/>
         <RegistryValue Root="HKCU" 
                        Key="Software\[Manufacturer]\[ProductName]" 

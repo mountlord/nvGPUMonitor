@@ -51,14 +51,22 @@
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <TextBlock Text="NGPU Monitor — v0.5.0" FontSize="20" FontWeight="SemiBold" Margin="4" />
+    <TextBlock Text="NGPU Monitor — v0.6.0" FontSize="20" FontWeight="SemiBold" Margin="4" />
 
-    <UniformGrid Grid.Row="1" Columns="6" Margin="0,16,0,0">
+    <UniformGrid Grid.Row="1" Columns="7" Margin="0,16,0,0">
       <g:DonutGauge Caption="GPU"  Value="{Binding GpuLoad}"  Detail="{Binding GpuDetail}"
                     CaptionOffsetX="0" CaptionOffsetY="40"
                     ValueOffsetX="0"   ValueOffsetY="40"
                     DetailOffsetX="0"  DetailOffsetY="40"/>
       <g:DonutGauge Caption="VRAM" Value="{Binding VramLoad}" Detail="{Binding VramDetail}"
+                    CaptionOffsetX="0" CaptionOffsetY="40"
+                    ValueOffsetX="0"   ValueOffsetY="40"
+                    DetailOffsetX="0"  DetailOffsetY="40"/>
+      <g:DonutGauge Caption="Decoder" Value="{Binding DecoderLoad}" Detail="{Binding DecoderDetail}"
+                    CaptionOffsetX="0" CaptionOffsetY="40"
+                    ValueOffsetX="0"   ValueOffsetY="40"
+                    DetailOffsetX="0"  DetailOffsetY="40"/>
+      <g:DonutGauge Caption="Encoder" Value="{Binding EncoderLoad}" Detail="{Binding EncoderDetail}"
                     CaptionOffsetX="0" CaptionOffsetY="40"
                     ValueOffsetX="0"   ValueOffsetY="40"
                     DetailOffsetX="0"  DetailOffsetY="40"/>
@@ -71,11 +79,6 @@
                         CaptionOffsetX="0" CaptionOffsetY="40"
                         ValueOffsetX="0"   ValueOffsetY="40"
                         DetailOffsetX="0"  DetailOffsetY="40"/>
-      <g:DonutGauge Caption="Free Space" Value="{Binding TempDirLoad}" Detail="{Binding TempDirDetail}"
-                    ArcBrush="{Binding TempDirBrush}"
-                    CaptionOffsetX="0" CaptionOffsetY="40"
-                    ValueOffsetX="0"   ValueOffsetY="40"
-                    DetailOffsetX="0"  DetailOffsetY="40"/>
       <g:DonutGauge Caption="CPU"  Value="{Binding CpuLoad}"  Detail="{Binding CpuSummary}"
                     CaptionOffsetX="0" CaptionOffsetY="40"
                     ValueOffsetX="0"   ValueOffsetY="40"
@@ -109,9 +112,20 @@
       </DataGrid>
     </Border>
 
-    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+    <DockPanel Grid.Row="3" Margin="0,8,0,0">
+      <Button DockPanel.Dock="Left" Click="About_Click" Margin="0,0,8,0"
+              Width="80" Height="28" Content="About"/>
+      <Button DockPanel.Dock="Left" Click="Donate_Click" Margin="0,0,8,0"
+              Width="160" Height="28" ToolTip="Donate to Save the Children">
+        <StackPanel Orientation="Horizontal">
+          <Image Source="SaveTheChildren.png" Width="16" Height="16"
+                 RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,6,0"/>
+          <TextBlock Text="Save The Children" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
       <TextBlock Text="Update Interval:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-      <ComboBox x:Name="IntervalComboBox" Width="100" Margin="0,0,16,0" SelectionChanged="IntervalComboBox_SelectionChanged">
+      <ComboBox x:Name="IntervalComboBox" Width="100" Height="28" Margin="0,0,16,0" SelectionChanged="IntervalComboBox_SelectionChanged">
         <ComboBoxItem Content="0.1 sec" Tag="100"/>
         <ComboBoxItem Content="0.2 sec" Tag="200"/>
         <ComboBoxItem Content="0.3 sec" Tag="300"/>
@@ -127,9 +141,9 @@
         <ComboBoxItem Content="4.0 sec" Tag="4000"/>
         <ComboBoxItem Content="5.0 sec" Tag="5000"/>
       </ComboBox>
-      <Button Content="Folder To Monitor" Width="140" Margin="4" Click="SelectTempDir_Click"/>
-      <Button Content="Start Log" Width="120" Margin="4" Click="StartLog_Click"/>
-      <Button Content="Stop Log" Width="120" Margin="4" Click="StopLog_Click"/>
-    </StackPanel>
+      <Button Content="Start Log" Width="120" Height="28" Margin="4,0,4,0" Click="StartLog_Click"/>
+      <Button Content="Stop Log" Width="120" Height="28" Margin="4,0,4,0" Click="StopLog_Click"/>
+      </StackPanel>
+    </DockPanel>
   </Grid>
 </Window>

@@ -28,21 +28,21 @@ namespace nvGPUMonitor
         private double _gpuLoad; public double GpuLoad { get => _gpuLoad; set { _gpuLoad = value; OnChange(nameof(GpuLoad)); } }
         private double _ramLoad; public double RamLoad { get => _ramLoad; set { _ramLoad = value; OnChange(nameof(RamLoad)); } }
         private double _vramLoad; public double VramLoad { get => _vramLoad; set { _vramLoad = value; OnChange(nameof(VramLoad)); } }
+        private double _decoderLoad; public double DecoderLoad { get => _decoderLoad; set { _decoderLoad = value; OnChange(nameof(DecoderLoad)); } }
+        private double _encoderLoad; public double EncoderLoad { get => _encoderLoad; set { _encoderLoad = value; OnChange(nameof(EncoderLoad)); } }
         private double _pcieTxLoad; public double PcieTxLoad { get => _pcieTxLoad; set { _pcieTxLoad = value; OnChange(nameof(PcieTxLoad)); } }
         private double _pcieRxLoad; public double PcieRxLoad { get => _pcieRxLoad; set { _pcieRxLoad = value; OnChange(nameof(PcieRxLoad)); } }
-        private double _tempDirLoad; public double TempDirLoad { get => _tempDirLoad; set { _tempDirLoad = value; OnChange(nameof(TempDirLoad)); } }
 
         private string _gpuDetail = ""; public string GpuDetail { get => _gpuDetail; set { _gpuDetail = value; OnChange(nameof(GpuDetail)); } }
         private string _ramDetail = ""; public string RamDetail { get => _ramDetail; set { _ramDetail = value; OnChange(nameof(RamDetail)); } }
         private string _vramDetail = ""; public string VramDetail { get => _vramDetail; set { _vramDetail = value; OnChange(nameof(VramDetail)); } }
+        private string _decoderDetail = ""; public string DecoderDetail { get => _decoderDetail; set { _decoderDetail = value; OnChange(nameof(DecoderDetail)); } }
+        private string _encoderDetail = ""; public string EncoderDetail { get => _encoderDetail; set { _encoderDetail = value; OnChange(nameof(EncoderDetail)); } }
         private string _pcieTxRate = "0 KB/s"; public string PcieTxRate { get => _pcieTxRate; set { _pcieTxRate = value; OnChange(nameof(PcieTxRate)); } }
         private string _pcieRxRate = "0 KB/s"; public string PcieRxRate { get => _pcieRxRate; set { _pcieRxRate = value; OnChange(nameof(PcieRxRate)); } }
         private string _pcieTxDetail = "0 KB/s"; public string PcieTxDetail { get => _pcieTxDetail; set { _pcieTxDetail = value; OnChange(nameof(PcieTxDetail)); } }
         private string _pcieRxDetail = "0 KB/s"; public string PcieRxDetail { get => _pcieRxDetail; set { _pcieRxDetail = value; OnChange(nameof(PcieRxDetail)); } }
-        private string _tempDirDetail = ""; public string TempDirDetail { get => _tempDirDetail; set { _tempDirDetail = value; OnChange(nameof(TempDirDetail)); } }
         private string _pcieDetail = ""; public string PcieDetail { get => _pcieDetail; set { _pcieDetail = value; OnChange(nameof(PcieDetail)); } }
-        private System.Windows.Media.Brush _tempDirBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9B, 0x59, 0xB6)); 
-        public System.Windows.Media.Brush TempDirBrush { get => _tempDirBrush; set { _tempDirBrush = value; OnChange(nameof(TempDirBrush)); } }
 
         public ObservableCollection<TableRow> TableRows { get; } = new();
 
@@ -70,72 +70,25 @@ namespace nvGPUMonitor
             CpuLoad = m.CpuLoadPct;
             GpuLoad = m.GpuLoadPct;
             RamLoad = m.RamLoadPct;
-            VramLoad = (m.GpuMemTotal > 0) ? (m.GpuMemUsed * 100.0 / m.GpuMemTotal) : 0;
+            VramLoad = m.VramUtilPct;  // Memory controller utilization
+            DecoderLoad = m.DecoderUtilPct;
+            EncoderLoad = m.EncoderUtilPct;
 
             GpuDetail = m.HasNvGpu ? $"{m.GpuTempC}°C, {m.GpuClockMHz} MHz" : "—";
             RamDetail = $"{Bytes(m.RamUsed)} / {Bytes(m.RamTotal)}";
             VramDetail = $"{Bytes(m.GpuMemUsed)} / {Bytes(m.GpuMemTotal)}";
+            DecoderDetail = m.HasNvGpu ? "Video Decode" : "—";
+            EncoderDetail = m.HasNvGpu ? "Video Encode" : "—";
             
-            // Update PCIe bandwidth (assume max PCIe 3.0 x16 = ~15,750,000 KB/s for 100%)
-            const double MAX_PCIE_KBPS = 15750000.0; // ~15.75 GB/s theoretical max
-            PcieTxLoad = Math.Min(100, (m.GpuPcieTxKBps / MAX_PCIE_KBPS) * 100);
-            PcieRxLoad = Math.Min(100, (m.GpuPcieRxKBps / MAX_PCIE_KBPS) * 100);
+            // Update PCIe bandwidth using detected maximum bandwidth
+            double maxBw = m.PcieMaxBandwidthKBps > 0 ? m.PcieMaxBandwidthKBps : 15750000.0; // Fallback to PCIe 3.0 x16
+            PcieTxLoad = Math.Min(100, (m.GpuPcieTxKBps / maxBw) * 100);
+            PcieRxLoad = Math.Min(100, (m.GpuPcieRxKBps / maxBw) * 100);
             PcieTxDetail = FormatBandwidth(m.GpuPcieTxKBps);
             PcieRxDetail = FormatBandwidth(m.GpuPcieRxKBps);
             PcieTxRate = FormatBandwidth(m.GpuPcieTxKBps);
             PcieRxRate = FormatBandwidth(m.GpuPcieRxKBps);
-            PcieDetail = $"TX: {FormatBandwidth(m.GpuPcieTxKBps)} • RX: {FormatBandwidth(m.GpuPcieRxKBps)}";
-
-            // Update temp directory size
-            TempDirDetail = Bytes(m.TempDirBytes);
-            
-            // Calculate percentage of FREE space remaining on the drive
-            try
-            {
-                string tempPath = _svc.GetCurrentTempPath();
-                if (!string.IsNullOrEmpty(tempPath))
-                {
-                    var driveInfo = new System.IO.DriveInfo(System.IO.Path.GetPathRoot(tempPath) ?? "C:");
-                    if (driveInfo.IsReady)
-                    {
-                        ulong totalSpace = (ulong)driveInfo.TotalSize;
-                        ulong freeSpace = (ulong)driveInfo.AvailableFreeSpace;
-                        
-                        // Show percentage of FREE space (how much is available)
-                        TempDirLoad = totalSpace > 0 ? (freeSpace * 100.0) / totalSpace : 0;
-                        
-                        // Change color based on free space
-                        // Green: > 50% free
-                        // Orange: 20-50% free
-                        // Red: < 20% free
-                        if (TempDirLoad > 50)
-                        {
-                            TempDirBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x00, 0xC8, 0x96)); // Green
-                        }
-                        else if (TempDirLoad > 20)
-                        {
-                            TempDirBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0x6B, 0x35)); // Orange
-                        }
-                        else
-                        {
-                            TempDirBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0x33, 0x33)); // Red
-                        }
-                    }
-                    else
-                    {
-                        TempDirLoad = 0;
-                    }
-                }
-                else
-                {
-                    TempDirLoad = 0;
-                }
-            }
-            catch
-            {
-                // If drive info fails, show 0
-                TempDirLoad = 0;
-            }
+            PcieDetail = $"PCIe {m.PcieGeneration}.0 x{m.PcieWidth} • TX: {FormatBandwidth(m.GpuPcieTxKBps)} • RX: {FormatBandwidth(m.GpuPcieRxKBps)}";
 
             var row = new TableRow
             {
@@ -219,25 +172,6 @@ namespace nvGPUMonitor
             _logWriter = null;
             MessageBox.Show("Logging stopped.", "nvGPUMonitor");
         }
-
-        private void SelectTempDir_Click(object sender, RoutedEventArgs e)
-        {
-            using var dialog = new System.Windows.Forms.FolderBrowserDialog
-            {
-                Description = "Select directory to monitor for size",
-                ShowNewFolderButton = false
-            };
-
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                string? selectedPath = dialog.SelectedPath;
-                if (!string.IsNullOrEmpty(selectedPath))
-                {
-                    _svc.SetTempDirectory(selectedPath);
-                    MessageBox.Show($"Now monitoring:{Environment.NewLine}{selectedPath}", "nvGPUMonitor");
-                }
-            }
-        }
 		private void DonutGauge_Loaded(object sender, RoutedEventArgs e)
 		{
 			if (sender is DonutGauge gauge)
@@ -260,6 +194,18 @@ namespace nvGPUMonitor
                     _tick.Start();
                 }
             }
+        }
+
+        private void About_Click(object sender, RoutedEventArgs e)
+        {
+            var about = new AboutWindow { Owner = this };
+            about.ShowDialog();
+        }
+
+        private void Donate_Click(object sender, RoutedEventArgs e)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "https://www.savethechildren.org/") { UseShellExecute = true });
         }
     }
 }

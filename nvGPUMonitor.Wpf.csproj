@@ -6,11 +6,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>nvGPUMonitor</AssemblyName>
+    <ApplicationIcon>nvGPUMonitor.ico</ApplicationIcon>
+    <Version>0.6.0</Version>
+    <Company>nvGPUMonitor contributors</Company>
+    <Copyright>Copyright (C) 2026 nvGPUMonitor contributors</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="9.0.0" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="nvGPUMonitor.ico" />
+    <Resource Include="SaveTheChildren.png" />
   </ItemGroup>
 </Project>

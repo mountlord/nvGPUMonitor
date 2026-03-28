@@ -1,34 +1,28 @@
 # nvGPUMonitor - NVIDIA GPU Monitor
 
-A real-time system monitoring application for Windows that tracks GPU, CPU, RAM, PCIe bandwidth, and disk space usage with beautiful donut-style gauges.
+A real-time system monitoring application for Windows that tracks GPU, CPU, RAM, PCIe bandwidth, and encoder/decoder utilization with beautiful donut-style gauges.
 
 ## Features
 
 ### 📊 Real-Time Monitoring
 - **GPU**: Load percentage, temperature, clock speed, fan RPM
-- **VRAM**: Memory usage and percentage
-- **PCIe Bandwidth**: Separate TX/RX throughput visualization
-- **Disk Space**: Free space percentage with color-coded warnings
+- **VRAM**: Memory controller utilization percentage
+- **Decoder**: NVIDIA video decoder engine utilization
+- **Encoder**: NVIDIA video encoder engine utilization
+- **PCIe Bandwidth**: TX/RX throughput as % of detected link capacity
 - **CPU**: Load percentage, temperature, clock speed, fan RPM
 - **RAM**: Memory usage and percentage
-- **Python Processes**: Aggregate CPU and memory usage
 
 ### 🎨 Visual Gauges
 - Custom donut-style gauges with smooth animations
 - Color-coded indicators:
   - **PCIe**: Orange (TX) and Green (RX) dual rings
-  - **Disk Space**: Green (>50% free), Orange (20-50% free), Red (<20% free)
-- Real-time updating (1-second intervals)
+- Configurable polling intervals (0.1s to 5.0s)
 
 ### 📈 Data Logging
 - Export metrics to CSV format
 - Timestamped logs saved to `Documents/nvGPUMonitor/`
 - Start/stop logging on demand
-
-### 📁 Custom Directory Monitoring
-- Monitor any directory for size tracking
-- Displays size as percentage of drive capacity
-- Visual warning when disk space is low
 
 ### 📋 Historical Data Table
 - Last 500 data points displayed
@@ -56,27 +50,21 @@ git clone https://github.com/seatv/nvGPUMonitor.git
 cd nvGPUMonitor
 
 # Restore dependencies
-dotnet restore nvGPUMonitor/nvGPUMonitor.Wpf.csproj
+dotnet restore nvGPUMonitor.Wpf.csproj
 
 # Build
-dotnet build nvGPUMonitor/nvGPUMonitor.Wpf.csproj -c Release
+dotnet build nvGPUMonitor.Wpf.csproj -c Release
 
 # Run
-dotnet run --project nvMonTwo/nvGPUMonitor.Wpf.csproj
+dotnet run --project nvGPUMonitor.Wpf.csproj
 ```
 
 ## Usage
 
 ### Basic Monitoring
 1. Launch nvGPUMonitor
-2. Gauges update automatically every second
+2. Gauges update automatically at the configured polling interval
 3. View real-time metrics for all monitored components
-
-### Custom Directory Monitoring
-1. Click **"Select Temp Dir"** button
-2. Navigate to the directory you want to monitor
-3. Select any file in that folder
-4. Gauge shows directory size as % of drive capacity
 
 ### Data Logging
 1. Click **"Start Log"** to begin recording metrics
@@ -86,15 +74,14 @@ dotnet run --project nvMonTwo/nvGPUMonitor.Wpf.csproj
 ## Project Structure
 ```
 nvGPUMonitor/
-├── nvGPUMonitor/                   # Main application
-│   ├── Controls/              # Custom WPF controls
-│   │   ├── DonutGauge.*       # Single-metric gauge
-│   │   └── DualDonutGauge.*   # Dual-metric gauge (PCIe)
-│   ├── Models/                # Data models
-│   ├── Services/              # Business logic
-│   ├── Utils/                 # Helper utilities
-│   └── MainWindow.*          # Main UI
-└── Installer/                # WiX installer project
+├── Controls/              # Custom WPF controls
+│   ├── DonutGauge.*       # Single-metric gauge
+│   └── DualDonutGauge.*   # Dual-metric gauge (PCIe TX/RX)
+├── Models/                # Data models
+├── Services/              # Business logic
+├── Utils/                 # Helper utilities (NVML bindings)
+├── MainWindow.*           # Main UI
+└── Installer/             # WiX installer project
 ```
 
 ## Technologies
@@ -105,8 +92,20 @@ nvGPUMonitor/
 
 ## License
 
-Vrisber is released under the [Apache License 2.0](LICENSE).
+nvGPUMonitor is released under the [GNU General Public License v3](LICENSE).
+
+## Disclaimer
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+USE AT YOUR OWN RISK. The authors and contributors shall not be liable for any damages
+arising from the use of this software, including but not limited to system instability,
+data loss, or hardware issues. See the LICENSE file for full terms.
+
+## Support the Project
+
+If you find this software useful, consider donating to my favorite charity: [Save The Children](https://support.savethechildren.org/site/Donation2)
+Details coming soon.
 
 ## Version
 
-v0.5.0 - Dynamic disk space monitoring with color-coded warnings
+v0.6.0 - Added Decoder/Encoder gauges, PCIe % utilization with auto-detection

@@ -21,5 +21,11 @@ namespace nvGPUMonitor.Utils
         [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetFanSpeed(IntPtr device, out uint speedPct);
         [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetMemoryInfo(IntPtr device, out Memory memory);
         [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetPcieThroughput(IntPtr device, PcieUtilCounter counter, out uint value);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetMaxPcieLinkGeneration(IntPtr device, out uint maxLinkGen);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetMaxPcieLinkWidth(IntPtr device, out uint maxLinkWidth);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetCurrPcieLinkGeneration(IntPtr device, out uint currLinkGen);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetCurrPcieLinkWidth(IntPtr device, out uint currLinkWidth);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetDecoderUtilization(IntPtr device, out uint utilization, out uint samplingPeriodUs);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetEncoderUtilization(IntPtr device, out uint utilization, out uint samplingPeriodUs);
     }
 }

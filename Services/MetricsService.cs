@@ -15,7 +15,9 @@ namespace nvGPUMonitor.Services
         private int _procCount;
         private bool _nvmlOk;
         private IntPtr _gpu0;
-        private string _tempDirPath;
+        private uint _pcieMaxGen;
+        private uint _pcieMaxWidth;
+        private double _pcieMaxBandwidthKBps;
 
         public MetricsService()
         {
@@ -23,7 +25,6 @@ namespace nvGPUMonitor.Services
             _cpuTotal.NextValue();
             _lastPythonSample = DateTime.UtcNow;
             _lastPythonCpu = GetPythonCpuTime();
-            _tempDirPath = System.IO.Path.GetTempPath(); // Default to Windows TEMP
 
             try
             {
@@ -32,22 +33,38 @@ namespace nvGPUMonitor.Services
                     Nvml.nvmlDeviceGetHandleByIndex_v2(0, out _gpu0) == Nvml.Return.NVML_SUCCESS)
                 {
                     _nvmlOk = true;
+                    
+                    // Get PCIe link capabilities
+                    if (Nvml.nvmlDeviceGetMaxPcieLinkGeneration(_gpu0, out _pcieMaxGen) == Nvml.Return.NVML_SUCCESS &&
+                        Nvml.nvmlDeviceGetMaxPcieLinkWidth(_gpu0, out _pcieMaxWidth) == Nvml.Return.NVML_SUCCESS)
+                    {
+                        // Calculate theoretical max bandwidth
+                        // PCIe bandwidth per lane: Gen 1 = 250 MB/s, Gen 2 = 500 MB/s, Gen 3 = 985 MB/s, 
+                        // Gen 4 = 1969 MB/s, Gen 5 = 3938 MB/s (approximately, using GT/s * encoding efficiency)
+                        double mbpsPerLane = _pcieMaxGen switch
+                        {
+                            1 => 250.0,
+                            2 => 500.0,
+                            3 => 985.0,
+                            4 => 1969.0,
+                            5 => 3938.0,
+                            _ => 985.0 // Default to Gen 3 if unknown
+                        };
+                        
+                        // Total bandwidth = per-lane bandwidth * width
+                        // Convert to KB/s
+                        _pcieMaxBandwidthKBps = mbpsPerLane * _pcieMaxWidth * 1024.0;
+                    }
+                    else
+                    {
+                        // Fallback to PCIe 3.0 x16
+                        _pcieMaxGen = 3;
+                        _pcieMaxWidth = 16;
+                        _pcieMaxBandwidthKBps = 15750000.0; // 15.75 GB/s
+                    }
                 }
             }
             catch { _nvmlOk = false; }
-        }
-
-        public void SetTempDirectory(string path)
-        {
-            if (System.IO.Directory.Exists(path))
-            {
-                _tempDirPath = path;
-            }
-        }
-
-        public string GetCurrentTempPath()
-        {
-            return _tempDirPath;
         }
 
         public MetricSample Sample()
@@ -65,6 +82,9 @@ namespace nvGPUMonitor.Services
 
             bool hasNv = _nvmlOk;
             double gpuLoad = 0;
+            double vramUtil = 0;
+            double decoderUtil = 0;
+            double encoderUtil = 0;
             int gpuTemp = 0;
             int gpuClock = 0;
             int gpuFan = 0;
@@ -75,7 +95,11 @@ namespace nvGPUMonitor.Services
             {
                 try
                 {
-                    if (Nvml.nvmlDeviceGetUtilizationRates(_gpu0, out var util) == Nvml.Return.NVML_SUCCESS) gpuLoad = util.gpu;
+                    if (Nvml.nvmlDeviceGetUtilizationRates(_gpu0, out var util) == Nvml.Return.NVML_SUCCESS)
+                    {
+                        gpuLoad = util.gpu;
+                        vramUtil = util.memory;
+                    }
                     if (Nvml.nvmlDeviceGetTemperature(_gpu0, Nvml.TemperatureSensors.NVML_TEMPERATURE_GPU, out var t) == Nvml.Return.NVML_SUCCESS) gpuTemp = (int)t;
                     if (Nvml.nvmlDeviceGetClockInfo(_gpu0, Nvml.ClockType.Graphics, out var c) == Nvml.Return.NVML_SUCCESS) gpuClock = (int)c;
                     if (Nvml.nvmlDeviceGetFanSpeed(_gpu0, out var f) == Nvml.Return.NVML_SUCCESS) gpuFan = (int)f;
@@ -84,6 +108,10 @@ namespace nvGPUMonitor.Services
                     // PCIe bandwidth: TX = GPU→CPU (uploads), RX = CPU→GPU (downloads)
                     if (Nvml.nvmlDeviceGetPcieThroughput(_gpu0, Nvml.PcieUtilCounter.NVML_PCIE_UTIL_TX_BYTES, out var tx) == Nvml.Return.NVML_SUCCESS) pcieTxKBps = tx;
                     if (Nvml.nvmlDeviceGetPcieThroughput(_gpu0, Nvml.PcieUtilCounter.NVML_PCIE_UTIL_RX_BYTES, out var rx) == Nvml.Return.NVML_SUCCESS) pcieRxKBps = rx;
+                    
+                    // Decoder and Encoder utilization
+                    if (Nvml.nvmlDeviceGetDecoderUtilization(_gpu0, out var decUtil, out var _) == Nvml.Return.NVML_SUCCESS) decoderUtil = decUtil;
+                    if (Nvml.nvmlDeviceGetEncoderUtilization(_gpu0, out var encUtil, out var _) == Nvml.Return.NVML_SUCCESS) encoderUtil = encUtil;
                 }
                 catch { hasNv = false; }
             }
@@ -91,8 +119,6 @@ namespace nvGPUMonitor.Services
             double? cpuTempC = TryGetCpuTemp();
             int? cpuClock = TryGetCpuClockMHz();
             int? cpuFan = TryGetCpuFanRpm();
-
-            ulong tempDirSize = GetTempDirectorySize();
 
             return new MetricSample(
                 Timestamp: now,
@@ -107,14 +133,19 @@ namespace nvGPUMonitor.Services
                 GpuFanRpm: gpuFan,
                 GpuMemTotal: vmemTotal,
                 GpuMemUsed: vmemUsed,
+                VramUtilPct: vramUtil,
+                DecoderUtilPct: decoderUtil,
+                EncoderUtilPct: encoderUtil,
                 GpuPcieTxKBps: pcieTxKBps,
                 GpuPcieRxKBps: pcieRxKBps,
+                PcieMaxBandwidthKBps: _pcieMaxBandwidthKBps,
+                PcieGeneration: _pcieMaxGen,
+                PcieWidth: _pcieMaxWidth,
                 RamTotal: total,
                 RamUsed: ramUsed,
                 RamLoadPct: ramPct,
                 PythonCpuPct: pyCpuPct,
-                PythonWorkingSet: pyRss,
-                TempDirBytes: tempDirSize
+                PythonWorkingSet: pyRss
             );
         }
 
@@ -222,31 +253,5 @@ namespace nvGPUMonitor.Services
             avail = ms.ullAvailPhys;
         }
 
-        private ulong GetTempDirectorySize()
-        {
-            try
-            {
-                string tempPath = _tempDirPath; // Use configured path
-                var dirInfo = new System.IO.DirectoryInfo(tempPath);
-                
-                ulong totalSize = 0;
-                foreach (var file in dirInfo.GetFiles("*", System.IO.SearchOption.AllDirectories))
-                {
-                    try
-                    {
-                        totalSize += (ulong)file.Length;
-                    }
-                    catch
-                    {
-                        // Skip files we can't access
-                    }
-                }
-                return totalSize;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
     }
 }

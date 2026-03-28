@@ -1,0 +1,70 @@
+<Window x:Class="nvGPUMonitor.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About nvGPUMonitor"
+        Width="520" Height="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#FAFAFC">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="nvGPUMonitor" FontSize="22" FontWeight="Bold"
+                   Foreground="#333333" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+
+        <TextBlock Grid.Row="1" Text="Version 0.6.0" FontSize="13" Foreground="#666666"
+                   HorizontalAlignment="Center" Margin="0,0,0,16"/>
+
+        <TextBlock Grid.Row="2" TextWrapping="Wrap" Foreground="#333333" FontSize="12" Margin="0,0,0,10"
+                   Text="Real-time NVIDIA GPU and system metrics monitor for Windows."/>
+
+        <TextBlock Grid.Row="3" TextWrapping="Wrap" Foreground="#333333" FontSize="12" Margin="0,0,0,10"
+                   Text="Copyright (C) 2026 nvGPUMonitor contributors"/>
+
+        <TextBlock Grid.Row="4" TextWrapping="Wrap" Foreground="#555555" FontSize="12" Margin="0,0,0,10"
+                   Text="Licensed under the GNU General Public License v3. See LICENSE file for full terms."/>
+
+        <Border Grid.Row="5" Background="#FFF3CD" BorderBrush="#FFC107" BorderThickness="1"
+                CornerRadius="4" Padding="10,8" Margin="0,0,0,16">
+            <TextBlock TextWrapping="Wrap" Foreground="#856404" FontSize="11"
+                       Text="DISCLAIMER: This software is provided AS-IS with NO WARRANTY. Use at your own risk. The authors and contributors are not liable for any damages arising from its use."/>
+        </Border>
+
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,0,0,16">
+            <TextBlock FontSize="12" Foreground="#333333" VerticalAlignment="Center"
+                       Text="Full license text: "/>
+            <TextBlock FontSize="12" VerticalAlignment="Center">
+                <Hyperlink NavigateUri="https://www.gnu.org/licenses/gpl-3.0.txt"
+                           RequestNavigate="Hyperlink_RequestNavigate"
+                           Foreground="#0066CC">
+                    https://www.gnu.org/licenses/gpl-3.0.txt
+                </Hyperlink>
+            </TextBlock>
+        </StackPanel>
+        <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,0,0,16">
+            <TextBlock FontSize="12" Foreground="#333333" VerticalAlignment="Center"
+                       Text="If you find this tool useful, please donate: "/>
+            <TextBlock FontSize="12" VerticalAlignment="Center">
+                <Hyperlink NavigateUri="https://support.savethechildren.org/site/Donation2"
+                           RequestNavigate="Hyperlink_RequestNavigate"
+                           Foreground="#0066CC">
+						   SaveTheChildren.Org
+                </Hyperlink>
+            </TextBlock>
+        </StackPanel>
+
+        <Button Grid.Row="8" Content="OK" Width="80" HorizontalAlignment="Center"
+                Background="#333333" Foreground="White" FontWeight="Bold"
+                BorderThickness="0" Padding="8,6" Click="OK_Click"/>
+    </Grid>
+</Window>

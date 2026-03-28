@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <?define ProductVersion="1.0.0.0" ?>
+  <?define ProductVersion="0.6.0.0" ?>
   <?define ProductName="nvGPUMonitor" ?>
-  <?define Manufacturer="BySeaTV" ?>
+  <?define Manufacturer="nvGPUMonitor contributors" ?>
   <?define UpgradeCode="A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D" ?>
   
   <Product Id="*" 
@@ -16,7 +16,7 @@
              Compressed="yes" 
              InstallScope="perMachine" 
              Description="NVIDIA GPU Monitor Application"
-             Comments="Monitors GPU, CPU, RAM, and VRAM metrics"
+             Comments="Monitors GPU, CPU, RAM, VRAM, PCIe, Decoder and Encoder metrics"
              Platform="x64" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -28,9 +28,14 @@
       <ComponentRef Id="DesktopShortcut" />
     </Feature>
 
-    <!-- UI -->
+    <!-- UI with license agreement (LICENSE.rtf lives in project root, one level up) -->
     <UIRef Id="WixUI_Minimal" />
-    
+    <WixVariable Id="WixUILicenseRtf" Value="..\LICENSE.rtf" />
+
+    <!-- Icon -->
+    <Icon Id="nvGPUMonitor.ico" SourceFile="..\nvGPUMonitor.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="nvGPUMonitor.ico" />
+
   </Product>
 
   <Fragment>
@@ -55,7 +60,8 @@
                   Name="nvGPUMonitor"
                   Description="NVIDIA GPU Monitor"
                   Target="[INSTALLFOLDER]nvGPUMonitor.exe"
-                  WorkingDirectory="INSTALLFOLDER" />
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="nvGPUMonitor.ico" />
         <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
         <RegistryValue Root="HKCU" 
                        Key="Software\[Manufacturer]\[ProductName]" 
@@ -73,7 +79,8 @@
                   Name="nvGPUMonitor"
                   Description="NVIDIA GPU Monitor"
                   Target="[INSTALLFOLDER]nvGPUMonitor.exe"
-                  WorkingDirectory="INSTALLFOLDER" />
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="nvGPUMonitor.ico" />
         <RemoveFolder Id="CleanUpDesktopShortcut" Directory="DesktopFolder" On="uninstall"/>
         <RegistryValue Root="HKCU" 
                        Key="Software\[Manufacturer]\[ProductName]" 
