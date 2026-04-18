@@ -14,5 +14,7 @@ namespace nvGPUMonitor.Models
         public string Col8 { get; set; } = "—"; // Py Aggregate
         public string Col9 { get; set; } = "—"; // PCIe TX
         public string Col10 { get; set; } = "—"; // PCIe RX
+        public string Col11 { get; set; } = "—"; // Decoder
+        public string Col12 { get; set; } = "—"; // Encoder
     }
 }

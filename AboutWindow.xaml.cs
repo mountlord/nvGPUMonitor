@@ -9,6 +9,7 @@ namespace nvGPUMonitor
         public AboutWindow()
         {
             InitializeComponent();
+            VersionText.Text = $"Version {MainWindow.AppVersion}";
         }
 
         private void OK_Click(object sender, RoutedEventArgs e)

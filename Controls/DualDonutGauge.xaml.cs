@@ -97,9 +97,13 @@ namespace nvGPUMonitor.Controls
             double v1 = Math.Max(0, Math.Min(100, Value1));
             double v2 = Math.Max(0, Math.Min(100, Value2));
             
-            // Hide the individual TX/RX percentage lines
-            Value1Text.Visibility = Visibility.Collapsed;
-            Value2Text.Visibility = Visibility.Collapsed;
+            // Show TX/RX percentages with matching arc colors
+            Value1Text.Visibility = Visibility.Visible;
+            Value2Text.Visibility = Visibility.Visible;
+            Value1Text.Text = $"{Label1}: {v1:0}%";
+            Value2Text.Text = $"{Label2}: {v2:0}%";
+            Value1Text.Foreground = Arc1Brush;
+            Value2Text.Foreground = Arc2Brush;
             
             CaptionText.Text = string.IsNullOrWhiteSpace(Caption) ? "—" : Caption;
             DetailText.Text = Detail ?? "";

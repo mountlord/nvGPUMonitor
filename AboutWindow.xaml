@@ -22,7 +22,7 @@
         <TextBlock Grid.Row="0" Text="nvGPUMonitor" FontSize="22" FontWeight="Bold"
                    Foreground="#333333" HorizontalAlignment="Center" Margin="0,0,0,4"/>
 
-        <TextBlock Grid.Row="1" Text="Version 0.6.0" FontSize="13" Foreground="#666666"
+        <TextBlock x:Name="VersionText" Grid.Row="1" FontSize="13" Foreground="#666666"
                    HorizontalAlignment="Center" Margin="0,0,0,16"/>
 
         <TextBlock Grid.Row="2" TextWrapping="Wrap" Foreground="#333333" FontSize="12" Margin="0,0,0,10"

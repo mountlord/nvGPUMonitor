@@ -7,7 +7,7 @@ using nvGPUMonitor.Utils;
 
 namespace nvGPUMonitor.Services
 {
-    public class MetricsService
+    public class MetricsService : IDisposable
     {
         private readonly PerformanceCounter _cpuTotal;
         private DateTime _lastPythonSample;
@@ -15,9 +15,10 @@ namespace nvGPUMonitor.Services
         private int _procCount;
         private bool _nvmlOk;
         private IntPtr _gpu0;
-        private uint _pcieMaxGen;
-        private uint _pcieMaxWidth;
+        private uint _pcieCurrentGen;
+        private uint _pcieCurrentWidth;
         private double _pcieMaxBandwidthKBps;
+        private bool _disposed;
 
         public MetricsService()
         {
@@ -34,37 +35,40 @@ namespace nvGPUMonitor.Services
                 {
                     _nvmlOk = true;
                     
-                    // Get PCIe link capabilities
-                    if (Nvml.nvmlDeviceGetMaxPcieLinkGeneration(_gpu0, out _pcieMaxGen) == Nvml.Return.NVML_SUCCESS &&
-                        Nvml.nvmlDeviceGetMaxPcieLinkWidth(_gpu0, out _pcieMaxWidth) == Nvml.Return.NVML_SUCCESS)
+                    // Get current (negotiated) PCIe link parameters — reflects actual slot capability
+                    if (Nvml.nvmlDeviceGetCurrPcieLinkGeneration(_gpu0, out _pcieCurrentGen) == Nvml.Return.NVML_SUCCESS &&
+                        Nvml.nvmlDeviceGetCurrPcieLinkWidth(_gpu0, out _pcieCurrentWidth) == Nvml.Return.NVML_SUCCESS)
                     {
-                        // Calculate theoretical max bandwidth
-                        // PCIe bandwidth per lane: Gen 1 = 250 MB/s, Gen 2 = 500 MB/s, Gen 3 = 985 MB/s, 
-                        // Gen 4 = 1969 MB/s, Gen 5 = 3938 MB/s (approximately, using GT/s * encoding efficiency)
-                        double mbpsPerLane = _pcieMaxGen switch
-                        {
-                            1 => 250.0,
-                            2 => 500.0,
-                            3 => 985.0,
-                            4 => 1969.0,
-                            5 => 3938.0,
-                            _ => 985.0 // Default to Gen 3 if unknown
-                        };
-                        
-                        // Total bandwidth = per-lane bandwidth * width
-                        // Convert to KB/s
-                        _pcieMaxBandwidthKBps = mbpsPerLane * _pcieMaxWidth * 1024.0;
+                        _pcieMaxBandwidthKBps = CalcPcieBandwidthKBps(_pcieCurrentGen, _pcieCurrentWidth);
                     }
                     else
                     {
                         // Fallback to PCIe 3.0 x16
-                        _pcieMaxGen = 3;
-                        _pcieMaxWidth = 16;
-                        _pcieMaxBandwidthKBps = 15750000.0; // 15.75 GB/s
+                        _pcieCurrentGen = 3;
+                        _pcieCurrentWidth = 16;
+                        _pcieMaxBandwidthKBps = CalcPcieBandwidthKBps(3, 16);
                     }
                 }
             }
             catch { _nvmlOk = false; }
+        }
+
+        /// <summary>
+        /// Calculate theoretical one-direction PCIe bandwidth in KB/s.
+        /// Per-lane rates (MB/s): Gen1=250, Gen2=500, Gen3=985, Gen4=1969, Gen5=3938.
+        /// </summary>
+        private static double CalcPcieBandwidthKBps(uint gen, uint width)
+        {
+            double mbpsPerLane = gen switch
+            {
+                1 => 250.0,
+                2 => 500.0,
+                3 => 985.0,
+                4 => 1969.0,
+                5 => 3938.0,
+                _ => 985.0 // Default to Gen 3 if unknown
+            };
+            return mbpsPerLane * width * 1024.0;
         }
 
         public MetricSample Sample()
@@ -139,8 +143,8 @@ namespace nvGPUMonitor.Services
                 GpuPcieTxKBps: pcieTxKBps,
                 GpuPcieRxKBps: pcieRxKBps,
                 PcieMaxBandwidthKBps: _pcieMaxBandwidthKBps,
-                PcieGeneration: _pcieMaxGen,
-                PcieWidth: _pcieMaxWidth,
+                PcieGeneration: _pcieCurrentGen,
+                PcieWidth: _pcieCurrentWidth,
                 RamTotal: total,
                 RamUsed: ramUsed,
                 RamLoadPct: ramPct,
@@ -159,7 +163,7 @@ namespace nvGPUMonitor.Services
 
             if (deltaWall <= 0) return 0;
             _procCount = _procCount == 0 ? Environment.ProcessorCount : _procCount;
-            return Math.Clamp(100.0 * deltaCpu / (deltaWall * 10.0 * _procCount), 0, 100);
+            return Math.Clamp(100.0 * deltaCpu / (deltaWall * _procCount), 0, 100);
         }
 
         private static TimeSpan GetPythonCpuTime()
@@ -167,7 +171,9 @@ namespace nvGPUMonitor.Services
             TimeSpan sum = TimeSpan.Zero;
             foreach (var p in Process.GetProcessesByName("python"))
             {
-                try { sum += p.TotalProcessorTime; } catch { }
+                try { sum += p.TotalProcessorTime; }
+                catch { }
+                finally { p.Dispose(); }
             }
             return sum;
         }
@@ -177,7 +183,9 @@ namespace nvGPUMonitor.Services
             ulong rss = 0;
             foreach (var p in Process.GetProcessesByName("python"))
             {
-                try { rss += (ulong)p.WorkingSet64; } catch { }
+                try { rss += (ulong)p.WorkingSet64; }
+                catch { }
+                finally { p.Dispose(); }
             }
             return rss;
         }
@@ -189,9 +197,12 @@ namespace nvGPUMonitor.Services
                 using var s = new ManagementObjectSearcher(@"root\WMI", "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
                 foreach (ManagementObject mo in s.Get())
                 {
-                    var raw = Convert.ToDouble(mo["CurrentTemperature"]);
-                    var c = (raw / 10.0) - 273.15;
-                    if (c > 0 && c < 110) return c;
+                    using (mo)
+                    {
+                        var raw = Convert.ToDouble(mo["CurrentTemperature"]);
+                        var c = (raw / 10.0) - 273.15;
+                        if (c > 0 && c < 110) return c;
+                    }
                 }
             }
             catch { }
@@ -205,7 +216,10 @@ namespace nvGPUMonitor.Services
                 using var s = new ManagementObjectSearcher("SELECT CurrentClockSpeed FROM Win32_Processor");
                 foreach (ManagementObject mo in s.Get())
                 {
-                    return Convert.ToInt32(mo["CurrentClockSpeed"]);
+                    using (mo)
+                    {
+                        return Convert.ToInt32(mo["CurrentClockSpeed"]);
+                    }
                 }
             }
             catch { }
@@ -219,8 +233,11 @@ namespace nvGPUMonitor.Services
                 using var s = new ManagementObjectSearcher(@"root\WMI", "SELECT CurrentRPM FROM Win32_Fan");
                 foreach (ManagementObject mo in s.Get())
                 {
-                    var rpm = mo["CurrentRPM"];
-                    if (rpm != null) return Convert.ToInt32(rpm);
+                    using (mo)
+                    {
+                        var rpm = mo["CurrentRPM"];
+                        if (rpm != null) return Convert.ToInt32(rpm);
+                    }
                 }
             }
             catch { }
@@ -247,11 +264,23 @@ namespace nvGPUMonitor.Services
         private static void GetMemoryStatus(out ulong total, out ulong avail)
         {
             MEMORYSTATUSEX ms = new MEMORYSTATUSEX();
-            ms.dwLength = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(MEMORYSTATUSEX));
+            ms.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
             GlobalMemoryStatusEx(ref ms);
             total = ms.ullTotalPhys;
             avail = ms.ullAvailPhys;
         }
 
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            _cpuTotal.Dispose();
+
+            if (_nvmlOk)
+            {
+                try { Nvml.nvmlShutdown(); } catch { }
+            }
+        }
     }
 }

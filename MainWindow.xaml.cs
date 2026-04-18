@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using nvGPUMonitor.Models;
 using nvGPUMonitor.Services;
@@ -18,6 +19,11 @@ namespace nvGPUMonitor
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnChange(string n) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+
+        public static string AppVersion { get; } =
+            Assembly.GetExecutingAssembly().GetName().Version is { } v
+                ? $"v{v.Major}.{v.Minor}.{v.Build}"
+                : "v0.0.0";
 
         public string CpuSummary { get; set; } = "—";
         public string GpuSummary { get; set; } = "—";
@@ -56,6 +62,16 @@ namespace nvGPUMonitor
             _tick.Start();
         }
 
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            _tick.Stop();
+            _tick.Dispose();
+            _logWriter?.Dispose();
+            _logWriter = null;
+            _svc.Dispose();
+            base.OnClosing(e);
+        }
+
         private void UpdateUi()
         {
             var m = _svc.Sample();
@@ -70,7 +86,12 @@ namespace nvGPUMonitor
             CpuLoad = m.CpuLoadPct;
             GpuLoad = m.GpuLoadPct;
             RamLoad = m.RamLoadPct;
-            VramLoad = m.VramUtilPct;  // Memory controller utilization
+
+            // VRAM gauge: show allocation percentage (used / total), not memory controller utilization
+            VramLoad = m.GpuMemTotal > 0
+                ? (m.GpuMemUsed * 100.0) / m.GpuMemTotal
+                : 0;
+
             DecoderLoad = m.DecoderUtilPct;
             EncoderLoad = m.EncoderUtilPct;
 
@@ -88,7 +109,7 @@ namespace nvGPUMonitor
             PcieRxDetail = FormatBandwidth(m.GpuPcieRxKBps);
             PcieTxRate = FormatBandwidth(m.GpuPcieTxKBps);
             PcieRxRate = FormatBandwidth(m.GpuPcieRxKBps);
-            PcieDetail = $"PCIe {m.PcieGeneration}.0 x{m.PcieWidth} • TX: {FormatBandwidth(m.GpuPcieTxKBps)} • RX: {FormatBandwidth(m.GpuPcieRxKBps)}";
+            PcieDetail = $"PCIe {m.PcieGeneration}.0 x{m.PcieWidth}";
 
             var row = new TableRow
             {
@@ -103,7 +124,9 @@ namespace nvGPUMonitor
                 Col7 = $"{Bytes(m.RamUsed)} / {Bytes(m.RamTotal)} ({m.RamLoadPct:0}%)",
                 Col8 = $"CPU {m.PythonCpuPct:0.0}% RSS {Bytes(m.PythonWorkingSet)}",
                 Col9 = FormatBandwidth(m.GpuPcieTxKBps),
-                Col10 = FormatBandwidth(m.GpuPcieRxKBps)
+                Col10 = FormatBandwidth(m.GpuPcieRxKBps),
+                Col11 = $"{m.DecoderUtilPct:0}%",
+                Col12 = $"{m.EncoderUtilPct:0}%"
             };
             TableRows.Insert(0, row);  // Insert at top instead of bottom
             if (TableRows.Count > 500) TableRows.RemoveAt(TableRows.Count - 1);  // Remove from bottom
