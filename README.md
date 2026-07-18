@@ -2,7 +2,7 @@
 
 A real-time system monitoring application for Windows that tracks GPU, CPU, RAM, PCIe bandwidth, and encoder/decoder utilization with beautiful donut-style gauges.
 
-![nvGPUMonitor in action](nvGPUMonitorScreenShot.png)
+![nvGPUMonitor in action](docs/nvGPUMonitorScreenShot.png)
 
 ## Features
 
