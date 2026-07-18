@@ -2,16 +2,19 @@
 
 A real-time system monitoring application for Windows that tracks GPU, CPU, RAM, PCIe bandwidth, and encoder/decoder utilization with beautiful donut-style gauges.
 
+![nvGPUMonitor in action](nvGPUMonitorScreenShot.png)
+
 ## Features
 
 ### 📊 Real-Time Monitoring
-- **GPU**: Load percentage, temperature, clock speed, fan RPM
-- **VRAM**: Memory controller utilization percentage
-- **Decoder**: NVIDIA video decoder engine utilization
-- **Encoder**: NVIDIA video encoder engine utilization
-- **PCIe Bandwidth**: TX/RX throughput as % of detected link capacity
-- **CPU**: Load percentage, temperature, clock speed, fan RPM
+- **GPU**: Load percentage, temperature, clock speed, fan speed
+- **VRAM**: Occupancy (used / total); memory-controller utilization is logged separately
+- **Decoder**: NVIDIA video decoder (NVDEC) engine utilization
+- **Encoder**: NVIDIA video encoder (NVENC) engine utilization
+- **PCIe Bandwidth**: TX/RX throughput as % of the link's maximum capability, with live link state (e.g. `PCIe 1.0 x8 (max 4.0 x8)` when power management downtrains the link)
+- **CPU**: Load percentage, live clock speed; temperature and fan when a sensor source is available (see note below)
 - **RAM**: Memory usage and percentage
+- **Python processes**: Aggregate CPU and memory of all running `python*` processes
 
 ### 🎨 Visual Gauges
 - Custom donut-style gauges with smooth animations
@@ -23,41 +26,34 @@ A real-time system monitoring application for Windows that tracks GPU, CPU, RAM,
 - Export metrics to CSV format
 - Timestamped logs saved to `Documents/nvGPUMonitor/`
 - Start/stop logging on demand
-
-### 📋 Historical Data Table
-- Last 500 data points displayed
-- Newest entries appear at top
-- Scrollable history view
+- Every column documented in [docs/METRICS_COLUMNS.md](docs/METRICS_COLUMNS.md) (sources, units, semantics)
+- An empty CSV field always means "could not read"; a `0` is always a real measured zero
 
 ## Requirements
 
 - **OS**: Windows 10/11
-- **.NET**: .NET 9.0 SDK or Runtime
+- **.NET**: .NET 9.0 SDK or Runtime (the MSI installer is self-contained and needs neither)
 - **GPU**: NVIDIA GPU with NVML support (optional - app works without GPU)
+- **CPU temperature/fan** (optional): most consumer desktops do not expose these via stock Windows WMI. Run [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) alongside nvGPUMonitor to populate them.
 
 ## Installation
 
 ### Build from Source
 
-**Prerequisites:**
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- Visual Studio 2022 (or any C# IDE)
-
-**Build Steps:**
+**Quick start:**
 ```bash
 # Clone the repository
-git clone https://github.com/seatv/nvGPUMonitor.git
+git clone https://github.com/mountlord/nvGPUMonitor.git
 cd nvGPUMonitor
-
-# Restore dependencies
-dotnet restore nvGPUMonitor.Wpf.csproj
 
 # Build
 dotnet build nvGPUMonitor.Wpf.csproj -c Release
 
 # Run
-dotnet run --project nvGPUMonitor.Wpf.csproj
+dotnet run --project nvGPUMonitor.Wpf.csproj -c Release
 ```
+
+For full build instructions, MSI packaging with WiX, the release checklist, and troubleshooting, see **[docs/BUILDING.md](docs/BUILDING.md)**.
 
 ## Usage
 
@@ -71,6 +67,8 @@ dotnet run --project nvGPUMonitor.Wpf.csproj
 2. Data saves to `Documents/nvGPUMonitor/metrics-[timestamp].csv`
 3. Click **"Stop Log"** when done
 
+Note: the CSV `ts` column is ISO-8601 **UTC**; the filename timestamp is **local time**.
+
 ## Project Structure
 ```
 nvGPUMonitor/
@@ -80,6 +78,7 @@ nvGPUMonitor/
 ├── Models/                # Data models
 ├── Services/              # Business logic
 ├── Utils/                 # Helper utilities (NVML bindings)
+├── docs/                  # Build guide and CSV column reference
 ├── MainWindow.*           # Main UI
 └── Installer/             # WiX installer project
 ```
@@ -88,7 +87,7 @@ nvGPUMonitor/
 
 - **Framework**: .NET 9.0, WPF (Windows Presentation Foundation)
 - **GPU Interface**: NVIDIA NVML (Management Library)
-- **System Metrics**: Windows Management Instrumentation (WMI)
+- **System Metrics**: Windows performance counters and WMI (with optional LibreHardwareMonitor bridge)
 
 ## License
 
@@ -104,8 +103,7 @@ data loss, or hardware issues. See the LICENSE file for full terms.
 ## Support the Project
 
 If you find this software useful, consider donating to my favorite charity: [Save The Children](https://support.savethechildren.org/site/Donation2)
-Details coming soon.
 
 ## Version
 
-v0.6.0 - Added Decoder/Encoder gauges, PCIe % utilization with auto-detection
+**v0.9.0** - Metrics audit release: corrected PCIe link-state handling, live CPU clock, python process matching, renamed misleading columns (**breaking CSV schema change**). Full history in [CHANGELOG.md](CHANGELOG.md).
