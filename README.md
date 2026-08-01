@@ -1,6 +1,8 @@
-# nvGPUMonitor - NVIDIA GPU Monitor
+# nvGPUMonitor - GPU Monitor
 
 A real-time system monitoring application for Windows that tracks GPU, CPU, RAM, PCIe bandwidth, and encoder/decoder utilization with beautiful donut-style gauges.
+
+Works with **any GPU** (v0.10.0): NVIDIA cards get the full metric set via NVML; Intel Arc, AMD, and everything else get load / VRAM / video-engine metrics via the Windows WDDM GPU counters (the same source as Task Manager), with temperatures via the optional LibreHardwareMonitor bridge.
 
 ![nvGPUMonitor in action](docs/nvGPUMonitorScreenShot.png)
 
@@ -8,10 +10,10 @@ A real-time system monitoring application for Windows that tracks GPU, CPU, RAM,
 
 ### 📊 Real-Time Monitoring
 - **GPU**: Load percentage, temperature, clock speed, fan speed
-- **VRAM**: Occupancy (used / total); memory-controller utilization is logged separately
-- **Decoder**: NVIDIA video decoder (NVDEC) engine utilization
-- **Encoder**: NVIDIA video encoder (NVENC) engine utilization
-- **PCIe Bandwidth**: TX/RX throughput as % of the link's maximum capability, with live link state (e.g. `PCIe 1.0 x8 (max 4.0 x8)` when power management downtrains the link)
+- **VRAM**: Occupancy (used / total); memory-controller utilization is logged separately (NVML)
+- **Decoder**: Video decode engine utilization (NVDEC on NVIDIA; QSV / VCN via WDDM counters on Intel / AMD)
+- **Encoder**: Video encode engine utilization (NVENC on NVIDIA; QSV / VCN via WDDM counters on Intel / AMD)
+- **PCIe Bandwidth** (NVIDIA/NVML only): TX/RX throughput as % of the link's maximum capability, with live link state (e.g. `PCIe 1.0 x8 (max 4.0 x8)` when power management downtrains the link)
 - **CPU**: Load percentage, live clock speed; temperature and fan when a sensor source is available (see note below)
 - **RAM**: Memory usage and percentage
 - **Python processes**: Aggregate CPU and memory of all running `python*` processes
@@ -33,8 +35,8 @@ A real-time system monitoring application for Windows that tracks GPU, CPU, RAM,
 
 - **OS**: Windows 10/11
 - **.NET**: .NET 9.0 SDK or Runtime (the MSI installer is self-contained and needs neither)
-- **GPU**: NVIDIA GPU with NVML support (optional - app works without GPU)
-- **CPU temperature/fan** (optional): most consumer desktops do not expose these via stock Windows WMI. Run [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) alongside nvGPUMonitor to populate them.
+- **GPU**: any WDDM GPU. NVIDIA cards with NVML get the full metric set (PCIe, memory-controller utilization, temp/clock/fan built in); Intel Arc / AMD get load, VRAM, and video-engine metrics out of the box. App still works with no GPU at all.
+- **CPU and non-NVIDIA GPU temperature/clock/fan** (optional): most consumer desktops do not expose these via stock Windows WMI. Run [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) alongside nvGPUMonitor to populate them.
 
 ## Installation
 
@@ -86,7 +88,7 @@ nvGPUMonitor/
 ## Technologies
 
 - **Framework**: .NET 9.0, WPF (Windows Presentation Foundation)
-- **GPU Interface**: NVIDIA NVML (Management Library)
+- **GPU Interface**: NVIDIA NVML (Management Library), with a vendor-agnostic WDDM performance-counter fallback (`GPU Engine` / `GPU Adapter Memory`) for Intel Arc / AMD
 - **System Metrics**: Windows performance counters and WMI (with optional LibreHardwareMonitor bridge)
 
 ## License
@@ -106,4 +108,4 @@ If you find this software useful, consider donating to my favorite charity: [Sav
 
 ## Version
 
-**v0.9.0** - Metrics audit release: corrected PCIe link-state handling, live CPU clock, python process matching, renamed misleading columns (**breaking CSV schema change**). Full history in [CHANGELOG.md](CHANGELOG.md).
+**v0.10.2** - GPU-agnostic backend: Intel Arc / AMD support via Windows WDDM GPU counters when NVML is absent; `gpu_backend` and `gpu_name` CSV columns appended (**additive schema change** - existing column positions unchanged). Full history in [CHANGELOG.md](CHANGELOG.md).

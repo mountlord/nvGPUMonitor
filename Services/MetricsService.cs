@@ -32,6 +32,13 @@ namespace nvGPUMonitor.Services
         private bool _nvmlOk;
         private IntPtr _gpu0;
 
+        // v0.10.0: vendor-agnostic fallback backend (Windows WDDM GPU
+        // counters -- Intel Arc, AMD, or NVIDIA-without-NVML). Constructed
+        // only when NVML is absent; null when neither backend works.
+        private WddmGpu? _wddm;
+        private string _gpuName = "";
+        private int _gpuSensorFailures; // LHM bridge gate, same pattern as CPU
+
         // PCIe link CAPABILITY (max gen/width), read once at startup.
         // This is the denominator for bandwidth utilization. The CURRENT
         // (negotiated) gen/width is re-read on every Sample() because ASPM
@@ -88,6 +95,28 @@ namespace nvGPUMonitor.Services
                 }
             }
             catch { _nvmlOk = false; }
+
+            if (_nvmlOk)
+            {
+                try
+                {
+                    var sb = new System.Text.StringBuilder(96);
+                    if (Nvml.nvmlDeviceGetName(_gpu0, sb, 96) == Nvml.Return.NVML_SUCCESS)
+                        _gpuName = sb.ToString();
+                }
+                catch { }
+            }
+            else
+            {
+                // No NVML: fall back to the OS-level WDDM GPU counters
+                // (vendor-agnostic; same source as Task Manager's GPU view).
+                try
+                {
+                    var w = new WddmGpu();
+                    if (w.Ok) { _wddm = w; _gpuName = w.AdapterName; }
+                }
+                catch { _wddm = null; }
+            }
         }
 
         /// <summary>
@@ -168,6 +197,37 @@ namespace nvGPUMonitor.Services
                 catch { hasNv = false; }
             }
 
+            // v0.10.0 fallback: WDDM GPU counters (any vendor). Provides
+            // load / decode / encode / VRAM; PCIe and mem-controller fields
+            // stay null (NVML-only). Temp/clock/fan come from the
+            // LibreHardwareMonitor WMI bridge when that app is running,
+            // with the same auto-disable-after-failures gate as the CPU
+            // sensors so an absent bridge costs nothing per tick.
+            double? copyUtil = null; // v0.10.2: wddm Copy/DMA engine
+            bool hasWddm = false;
+            if (!hasNv && _wddm != null)
+            {
+                _wddm.Sample(out gpuLoad, out decoderUtil, out encoderUtil, out copyUtil, out var usedBytes);
+                vmemUsed = usedBytes;
+                vmemTotal = _wddm.VramTotal;
+                hasWddm = true;
+
+                if (_gpuSensorFailures >= 0)
+                {
+                    var gt = QueryHwMonitorSensor("Temperature", new[] { "GPU Core", "GPU" });
+                    var gc = QueryHwMonitorSensor("Clock", new[] { "GPU Core" });
+                    var gf = QueryHwMonitorSensor("Fan", new[] { "GPU" });
+                    if (gt.HasValue && gt.Value > 0 && gt.Value < 120) gpuTemp = (int)Math.Round(gt.Value);
+                    if (gc.HasValue && gc.Value > 0) gpuClock = (int)Math.Round(gc.Value);
+                    if (gf.HasValue && gf.Value > 0) gpuFan = (int)Math.Round(gf.Value); // RPM here (NVML reports %)
+                    if (!gt.HasValue && !gc.HasValue && !gf.HasValue)
+                    {
+                        if (++_gpuSensorFailures >= SensorFailureLimit) _gpuSensorFailures = -1;
+                    }
+                    else _gpuSensorFailures = 0;
+                }
+            }
+
             double? cpuTempC = TryGetCpuTemp();
             int? cpuClock = TryGetCpuClockMHz();
             int? cpuFan = TryGetCpuFanRpm();
@@ -179,6 +239,9 @@ namespace nvGPUMonitor.Services
                 CpuClockMHz: cpuClock,
                 CpuFanRpm: cpuFan,
                 HasNvGpu: hasNv,
+                HasGpu: hasNv || hasWddm,
+                GpuBackend: hasNv ? "nvml" : (hasWddm ? "wddm" : ""),
+                GpuName: (hasNv || hasWddm) ? _gpuName : "",
                 GpuLoadPct: gpuLoad,
                 GpuTempC: gpuTemp,
                 GpuClockMHz: gpuClock,
@@ -188,6 +251,7 @@ namespace nvGPUMonitor.Services
                 MemCtrlUtilPct: memCtrlUtil,
                 DecoderUtilPct: decoderUtil,
                 EncoderUtilPct: encoderUtil,
+                CopyUtilPct: copyUtil,
                 GpuPcieTxKBps: pcieTxKBps,
                 GpuPcieRxKBps: pcieRxKBps,
                 PcieMaxBandwidthKBps: hasNv ? _pcieMaxBandwidthKBps : null,

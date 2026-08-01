@@ -44,6 +44,44 @@
       <Setter Property="BorderBrush" Value="{StaticResource Line3}"/>
       <Setter Property="BorderThickness" Value="0,0,0.5,0"/>
     </Style>
+
+    <!-- Colored log buttons: green Start / red Stop, gray when disabled.
+         Only one of the two is enabled at any time (see SetLoggingState). -->
+    <Style x:Key="LogButton" TargetType="Button">
+      <Setter Property="Width" Value="120"/>
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="Margin" Value="4,0,4,0"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="4"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.9"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Background" Value="#D9D9DE"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#C0C0C6"/>
+                <Setter Property="Foreground" Value="#8A8A90"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
 
   <Grid Background="#FAFAFC" Margin="12">
@@ -55,7 +93,7 @@
     </Grid.RowDefinitions>
 
     <TextBlock FontSize="20" FontWeight="SemiBold" Margin="4">
-      <Run Text="NGPU Monitor — "/><Run Text="{x:Static local:MainWindow.AppVersion}"/>
+      <Run Text="NGPU Monitor &#8212; "/><Run Text="{x:Static local:MainWindow.AppVersion}"/>
     </TextBlock>
 
     <UniformGrid Grid.Row="1" Columns="7" Margin="0,16,0,0">
@@ -75,10 +113,13 @@
                     CaptionOffsetX="0" CaptionOffsetY="40"
                     ValueOffsetX="0"   ValueOffsetY="40"
                     DetailOffsetX="0"  DetailOffsetY="40"/>
-      <g:DualDonutGauge Caption="PCIe" 
-                        Value1="{Binding PcieTxLoad}" 
+      <!-- v0.10.2: caption/labels are bound so the wddm backend can
+           repurpose this gauge as the Copy/DMA engine dial (no OS-level
+           PCIe counters exist off-NVML). -->
+      <g:DualDonutGauge Caption="{Binding PcieCaption}"
+                        Value1="{Binding PcieTxLoad}"
                         Value2="{Binding PcieRxLoad}"
-                        Label1="TX" Label2="RX"
+                        Label1="{Binding PcieLabel1}" Label2="{Binding PcieLabel2}"
                         Arc1Brush="#FF6B35" Arc2Brush="#00C896"
                         Detail="{Binding PcieDetail}"
                         CaptionOffsetX="0" CaptionOffsetY="40"
@@ -148,8 +189,16 @@
         <ComboBoxItem Content="4.0 sec" Tag="4000"/>
         <ComboBoxItem Content="5.0 sec" Tag="5000"/>
       </ComboBox>
-      <Button Content="Start Log" Width="120" Height="28" Margin="4,0,4,0" Click="StartLog_Click"/>
-      <Button Content="Stop Log" Width="120" Height="28" Margin="4,0,4,0" Click="StopLog_Click"/>
+      <TextBlock Text="Log File:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+      <TextBox x:Name="LogFileTextBox" Width="240" Height="28" Margin="0,0,4,0"
+               VerticalContentAlignment="Center"
+               ToolTip="Log file path or name. Leave empty for an automatic timestamped name in Documents\nvGPUMonitor. A bare name (no folder) is saved there too."/>
+      <Button x:Name="BrowseLogButton" Content="..." Width="32" Height="28" Margin="0,0,16,0"
+              Click="BrowseLog_Click" ToolTip="Browse for a log file location"/>
+      <Button x:Name="StartLogButton" Content="Start Log" Style="{StaticResource LogButton}"
+              Background="#2E9E4F" BorderBrush="#1F7A3A" Click="StartLog_Click"/>
+      <Button x:Name="StopLogButton" Content="Stop Log" Style="{StaticResource LogButton}"
+              Background="#D9463C" BorderBrush="#B03228" Click="StopLog_Click"/>
       </StackPanel>
     </DockPanel>
   </Grid>

@@ -97,13 +97,19 @@ namespace nvGPUMonitor.Controls
             double v1 = Math.Max(0, Math.Min(100, Value1));
             double v2 = Math.Max(0, Math.Min(100, Value2));
             
-            // Show TX/RX percentages with matching arc colors
-            Value1Text.Visibility = Visibility.Visible;
-            Value2Text.Visibility = Visibility.Visible;
+            // Show percentages with matching arc colors. An empty label
+            // hides its line and ring (v0.10.2: single-value mode, used by
+            // the wddm backend's Copy/DMA gauge).
+            bool has1 = !string.IsNullOrWhiteSpace(Label1);
+            bool has2 = !string.IsNullOrWhiteSpace(Label2);
+            Value1Text.Visibility = has1 ? Visibility.Visible : Visibility.Collapsed;
+            Value2Text.Visibility = has2 ? Visibility.Visible : Visibility.Collapsed;
             Value1Text.Text = $"{Label1}: {v1:0}%";
             Value2Text.Text = $"{Label2}: {v2:0}%";
             Value1Text.Foreground = Arc1Brush;
             Value2Text.Foreground = Arc2Brush;
+            if (!has1) v1 = 0;
+            if (!has2) v2 = 0;
             
             CaptionText.Text = string.IsNullOrWhiteSpace(Caption) ? "—" : Caption;
             DetailText.Text = Detail ?? "";

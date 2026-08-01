@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using Microsoft.Win32;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
@@ -53,12 +54,20 @@ namespace nvGPUMonitor
         private string _pcieRxDetail = "0 KB/s"; public string PcieRxDetail { get => _pcieRxDetail; set { _pcieRxDetail = value; OnChange(nameof(PcieRxDetail)); } }
         private string _pcieDetail = ""; public string PcieDetail { get => _pcieDetail; set { _pcieDetail = value; OnChange(nameof(PcieDetail)); } }
 
+        // v0.10.2: the PCIe gauge is repurposed as the Copy/DMA engine dial
+        // on the wddm backend (no OS-level PCIe counters exist off-NVML),
+        // so its caption and ring labels are bindable.
+        private string _pcieCaption = "PCIe"; public string PcieCaption { get => _pcieCaption; set { _pcieCaption = value; OnChange(nameof(PcieCaption)); } }
+        private string _pcieLabel1 = "TX"; public string PcieLabel1 { get => _pcieLabel1; set { _pcieLabel1 = value; OnChange(nameof(PcieLabel1)); } }
+        private string _pcieLabel2 = "RX"; public string PcieLabel2 { get => _pcieLabel2; set { _pcieLabel2 = value; OnChange(nameof(PcieLabel2)); } }
+
         public ObservableCollection<TableRow> TableRows { get; } = new();
 
         public MainWindow()
         {
             InitializeComponent();
             DataContext = this;
+            SetLoggingState(false);
             _svc = new MetricsService();
             _tick = new Timer(1000);
             _tick.Elapsed += (_, __) => OnTick();
@@ -101,9 +110,11 @@ namespace nvGPUMonitor
         private void UpdateUi(MetricSample m)
         {
             CpuSummary = $"Load {m.CpuLoadPct:0}% \u2022 Temp {(m.CpuTempC?.ToString("0") ?? "N/A")}\u00B0C \u2022 Clock {m.CpuClockMHz?.ToString("0") ?? "N/A"} MHz \u2022 Fan {(m.CpuFanRpm?.ToString() ?? "N/A")} RPM";
-            GpuSummary = m.HasNvGpu
-                ? $"Load {m.GpuLoadPct ?? 0:0}% \u2022 Temp {m.GpuTempC?.ToString() ?? "N/A"}\u00B0C \u2022 Clock {m.GpuClockMHz?.ToString() ?? "N/A"} MHz \u2022 Fan {m.GpuFanRpm?.ToString() ?? "N/A"} RPM \u2022 VRAM {Bytes(m.GpuMemUsed)} / {Bytes(m.GpuMemTotal)}"
-                : "No NVIDIA GPU (NVML not found)";
+            // v0.10.0: HasGpu covers both backends (nvml + wddm); name and
+            // backend are shown so a WDDM (Arc/AMD) run is recognizable.
+            GpuSummary = m.HasGpu
+                ? $"{m.GpuName} [{m.GpuBackend}] \u2022 Load {m.GpuLoadPct ?? 0:0}% \u2022 Temp {m.GpuTempC?.ToString() ?? "N/A"}\u00B0C \u2022 Clock {m.GpuClockMHz?.ToString() ?? "N/A"} MHz \u2022 Fan {m.GpuFanRpm?.ToString() ?? "N/A"} \u2022 VRAM {Bytes(m.GpuMemUsed)} / {Bytes(m.GpuMemTotal)}"
+                : "No GPU metrics source (no NVML, no WDDM GPU counters)";
             RamSummary = $"Used {Bytes(m.RamUsed)} / {Bytes(m.RamTotal)} ({m.RamLoadPct:0}%)";
             PythonSummary = m.PythonWorkingSet.HasValue
                 ? $"CPU {(m.PythonCpuPct.HasValue ? m.PythonCpuPct.Value.ToString("0.0") : "\u2014")}% \u2022 RSS {Bytes(m.PythonWorkingSet)}"
@@ -122,23 +133,52 @@ namespace nvGPUMonitor
             DecoderLoad = m.DecoderUtilPct ?? 0;
             EncoderLoad = m.EncoderUtilPct ?? 0;
 
-            GpuDetail = m.HasNvGpu ? $"{m.GpuTempC?.ToString() ?? "N/A"}\u00B0C, {m.GpuClockMHz?.ToString() ?? "N/A"} MHz" : "\u2014";
+            GpuDetail = m.HasGpu ? $"{m.GpuTempC?.ToString() ?? "N/A"}\u00B0C, {m.GpuClockMHz?.ToString() ?? "N/A"} MHz" : "\u2014";
             RamDetail = $"{Bytes(m.RamUsed)} / {Bytes(m.RamTotal)}";
             VramDetail = $"{Bytes(m.GpuMemUsed)} / {Bytes(m.GpuMemTotal)}";
-            DecoderDetail = m.HasNvGpu ? "Video Decode" : "\u2014";
-            EncoderDetail = m.HasNvGpu ? "Video Encode" : "\u2014";
+            // v0.10.1: Intel exposes one fixed-function media engine
+            // (reported as VideoDecode) and accounts QSV ENCODE work there
+            // too; there is no separate encode engine to read. When the
+            // wddm backend has no encoder value, the Decoder dial is the
+            // combined media engine and the Encoder dial shows N/A.
+            bool mediaCombined = m.GpuBackend == "wddm" && !m.EncoderUtilPct.HasValue;
+            DecoderDetail = m.HasGpu ? (mediaCombined ? "Media (dec+enc)" : "Video Decode") : "\u2014";
+            EncoderDetail = m.HasGpu ? (mediaCombined ? "on Media dial" : "Video Encode") : "\u2014";
 
-            // PCIe utilization: throughput as a fraction of the link's MAX
-            // capability (pcie_max_*), which is fixed. The CURRENT link state
-            // varies at runtime under ASPM and must not be the denominator.
-            double maxBw = m.PcieMaxBandwidthKBps ?? 15760000.0; // PCIe 3.0 x16 payload, KB/s
-            PcieTxLoad = Math.Clamp((m.GpuPcieTxKBps ?? 0) / maxBw * 100.0, 0, 100);
-            PcieRxLoad = Math.Clamp((m.GpuPcieRxKBps ?? 0) / maxBw * 100.0, 0, 100);
-            PcieTxDetail = FormatBandwidth(m.GpuPcieTxKBps);
-            PcieRxDetail = FormatBandwidth(m.GpuPcieRxKBps);
-            PcieTxRate = FormatBandwidth(m.GpuPcieTxKBps);
-            PcieRxRate = FormatBandwidth(m.GpuPcieRxKBps);
-            PcieDetail = FormatPcieLinkState(m);
+            if (m.GpuBackend == "wddm")
+            {
+                // v0.10.2: no OS-level PCIe counters exist off-NVML, but the
+                // Copy/DMA engine (host<->VRAM transfers) is the closest
+                // vendor-agnostic signal -- show it on this gauge instead of
+                // a dead dial. Single-ring mode: empty Label2 hides ring 2.
+                PcieCaption = "Copy";
+                PcieLabel1 = "DMA";
+                PcieLabel2 = "";
+                PcieTxLoad = m.CopyUtilPct ?? 0;
+                PcieRxLoad = 0;
+                PcieTxDetail = "";
+                PcieRxDetail = "";
+                PcieTxRate = "";
+                PcieRxRate = "";
+                PcieDetail = "Host\u2194VRAM engine";
+            }
+            else
+            {
+                PcieCaption = "PCIe";
+                PcieLabel1 = "TX";
+                PcieLabel2 = "RX";
+                // PCIe utilization: throughput as a fraction of the link's MAX
+                // capability (pcie_max_*), which is fixed. The CURRENT link state
+                // varies at runtime under ASPM and must not be the denominator.
+                double maxBw = m.PcieMaxBandwidthKBps ?? 15760000.0; // PCIe 3.0 x16 payload, KB/s
+                PcieTxLoad = Math.Clamp((m.GpuPcieTxKBps ?? 0) / maxBw * 100.0, 0, 100);
+                PcieRxLoad = Math.Clamp((m.GpuPcieRxKBps ?? 0) / maxBw * 100.0, 0, 100);
+                PcieTxDetail = FormatBandwidth(m.GpuPcieTxKBps);
+                PcieRxDetail = FormatBandwidth(m.GpuPcieRxKBps);
+                PcieTxRate = FormatBandwidth(m.GpuPcieTxKBps);
+                PcieRxRate = FormatBandwidth(m.GpuPcieRxKBps);
+                PcieDetail = FormatPcieLinkState(m);
+            }
 
             var row = new TableRow
             {
@@ -175,6 +215,7 @@ namespace nvGPUMonitor
                     // Stop logging on error
                     _logWriter?.Dispose();
                     _logWriter = null;
+                    SetLoggingState(false);
                     MessageBox.Show($"Logging error: {ex.Message}\nLogging has been stopped.", "nvGPUMonitor Error");
                 }
             }
@@ -187,7 +228,9 @@ namespace nvGPUMonitor
         /// </summary>
         private static string FormatPcieLinkState(MetricSample m)
         {
-            if (!m.HasNvGpu || !m.PcieCurGeneration.HasValue || !m.PcieCurWidth.HasValue)
+            // PCIe link state is NVML-only; the WDDM backend (v0.10.0)
+            // leaves these null and the gauge shows an em-dash.
+            if (!m.PcieCurGeneration.HasValue || !m.PcieCurWidth.HasValue)
                 return "\u2014";
 
             string cur = $"PCIe {m.PcieCurGeneration}.0 x{m.PcieCurWidth}";
@@ -225,28 +268,107 @@ namespace nvGPUMonitor
                 return $"{kbps / (1000.0 * 1000.0):0.##} GB/s";
         }
 
-        private void StartLog_Click(object sender, RoutedEventArgs e)
+        private static string DefaultLogDir()
         {
-            if (_logWriter != null) return;
-
             var dir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "nvGPUMonitor");
             Directory.CreateDirectory(dir);
+            return dir;
+        }
 
-            var path = Path.Combine(dir, $"metrics-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
-            _logWriter = new StreamWriter(path);
-            _logWriter.WriteLine(Models.MetricSample.CsvHeader);
+        private static string AutoLogFileName() =>
+            $"metrics-{DateTime.Now:yyyyMMdd-HHmmss}.csv";
 
-            string msg = "Logging to:" + Environment.NewLine + path;
-            MessageBox.Show(msg, "nvGPUMonitor");
+        /// <summary>
+        /// Enforces the logging-context UI contract: exactly one of
+        /// Start Log / Stop Log is enabled, and the file picker is locked
+        /// while a log is being written.
+        /// </summary>
+        private void SetLoggingState(bool logging)
+        {
+            StartLogButton.IsEnabled = !logging;
+            StopLogButton.IsEnabled = logging;
+            LogFileTextBox.IsEnabled = !logging;
+            BrowseLogButton.IsEnabled = !logging;
+        }
+
+        private void BrowseLog_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog
+            {
+                Title = "Choose log file",
+                InitialDirectory = DefaultLogDir(),
+                FileName = AutoLogFileName(),
+                DefaultExt = ".csv",
+                Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+                OverwritePrompt = false // overwrite is confirmed at Start Log time
+            };
+            if (dlg.ShowDialog(this) == true)
+            {
+                LogFileTextBox.Text = dlg.FileName;
+            }
+        }
+
+        private void StartLog_Click(object sender, RoutedEventArgs e)
+        {
+            if (_logWriter != null) return;
+
+            string text = LogFileTextBox.Text.Trim();
+            string path;
+            try
+            {
+                if (text.Length == 0)
+                {
+                    // No name chosen: automatic timestamped file, as before.
+                    path = Path.Combine(DefaultLogDir(), AutoLogFileName());
+                }
+                else
+                {
+                    path = text;
+                    // A bare filename (no folder) goes to Documents\nvGPUMonitor.
+                    if (!Path.IsPathRooted(path))
+                        path = Path.Combine(DefaultLogDir(), path);
+                    if (string.IsNullOrEmpty(Path.GetExtension(path)))
+                        path += ".csv";
+                    var dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir))
+                        Directory.CreateDirectory(dir);
+                }
+
+                if (File.Exists(path))
+                {
+                    var r = MessageBox.Show(
+                        "The file already exists and will be overwritten:" +
+                        Environment.NewLine + path + Environment.NewLine +
+                        Environment.NewLine + "Overwrite?",
+                        "nvGPUMonitor", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (r != MessageBoxResult.Yes) return;
+                }
+
+                _logWriter = new StreamWriter(path, append: false);
+                _logWriter.WriteLine(Models.MetricSample.CsvHeader);
+            }
+            catch (Exception ex)
+            {
+                _logWriter?.Dispose();
+                _logWriter = null;
+                MessageBox.Show(
+                    "Could not start logging:" + Environment.NewLine + ex.Message,
+                    "nvGPUMonitor Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Show the resolved full path so it is always visible while recording.
+            LogFileTextBox.Text = path;
+            SetLoggingState(true);
         }
 
         private void StopLog_Click(object sender, RoutedEventArgs e)
         {
             _logWriter?.Dispose();
             _logWriter = null;
-            MessageBox.Show("Logging stopped.", "nvGPUMonitor");
+            SetLoggingState(false);
         }
 
         private void DonutGauge_Loaded(object sender, RoutedEventArgs e)

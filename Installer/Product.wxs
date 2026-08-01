@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <?define ProductVersion="0.6.0.0" ?>
+  <?define ProductVersion="0.10.2" ?>
   <?define ProductName="nvGPUMonitor" ?>
   <?define Manufacturer="nvGPUMonitor contributors" ?>
   <?define UpgradeCode="F2038F5D-63D3-46E0-A621-54079172E2B9" ?>

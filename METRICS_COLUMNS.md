@@ -1,10 +1,4 @@
-# nvGPUMonitor CSV Column Reference (schema v0.10.0)
-
-v0.10.0 is an ADDITIVE schema change: `gpu_backend` and `gpu_name` are
-appended at the END of the row; every pre-existing column keeps its
-v0.9.0 position. When `gpu_backend` is `wddm` (non-NVIDIA fallback), the
-per-column "Source" below is replaced as described in the "WDDM backend"
-notes; columns marked NVML-only are empty on that backend.
+# nvGPUMonitor CSV Column Reference (schema v0.9.0)
 
 Global conventions:
 
@@ -51,40 +45,6 @@ Global conventions:
 | `ram_load` | derived | % 0-100 | `ram_used / ram_total`. |
 | `python_cpu` | `Process.TotalProcessorTime` delta across all processes named `python*` | % of ALL cores, 0-100 | Aggregate CPU of every process whose name starts with `python` (python, python3, python3.11, pythonw, ...). 100% = all cores saturated by python. Empty on the first tick after a python process appears, when one exits mid-interval, or when none is running. (Pre-0.9.0 only the exact name `python` matched, so this was always 0.) |
 | `python_rss` | `Process.WorkingSet64` sum across `python*` | bytes | Aggregate working set of the same process set. Empty when no python process is running. |
-| `gpu_backend` | backend selection at startup | `nvml` / `wddm` / empty | v0.10.0. Which backend produced the GPU columns this run: `nvml` (NVIDIA, full metric set) or `wddm` (any vendor via Windows GPU counters). Empty = no GPU source; all GPU columns empty. |
-| `gpu_name` | `nvmlDeviceGetName`, or display driver registry `DriverDesc` (WDDM) | text | v0.10.0. Adapter marketing name (e.g. `Intel(R) Arc(TM) A580 Graphics`). CSV-quoted if it contains a comma. |
-| `copy_util` | `GPU Engine \ Utilization Percentage`, engine types matching `*Copy*` (wddm only) | % 0-100 | v0.10.2. Busy time of the host<->VRAM Copy/DMA engine -- transfer-activity proxy for the NVML-only PCIe throughput. A PERCENT, not bandwidth. Empty on the nvml backend (no equivalent counter). |
-
-## WDDM backend (`gpu_backend=wddm`) column notes
-
-- `gpu_load`: max over per-engine-type sums from
-  `GPU Engine \ Utilization Percentage` (Task Manager "GPU %" semantics;
-  video engines included), filtered to the busiest adapter's LUID.
-- `decoder_util` / `encoder_util`: engine types matching `*Decode*` /
-  `*Encode*` (v0.10.1: substring match).
-  **Intel caveat (v0.10.1, field-verified on Arc A580)**: Intel exposes
-  one fixed-function media engine as a *VideoDecode* engine type and
-  accounts QSV **encode** work on it too; no separate Encode engine
-  exists. On such adapters `decoder_util` is the COMBINED media-engine
-  utilization (decode + encode) and `encoder_util` is empty (unknown),
-  never 0. On adapters that do expose an Encode engine (NVIDIA-via-wddm,
-  AMD), the two columns split as named.
-- `gpu_mem_used`: `GPU Adapter Memory \ Dedicated Usage` (bytes).
-- `gpu_mem_total`: display-class driver registry
-  `HardwareInformation.qwMemorySize` (QWORD; correct above 4 GB, unlike
-  `Win32_VideoController.AdapterRAM`). Empty if unreadable.
-- `gpu_temp` / `gpu_clock` / `gpu_fan`: LibreHardwareMonitor WMI bridge
-  only (run LHM alongside, same as for CPU sensors). **`gpu_fan` is RPM
-  here; on NVML it is percent-of-max.** Auto-disabled after 5
-  consecutive failures.
-- NVML-only, always empty on wddm: `mem_ctrl_util`, all `*pcie*`
-  columns.
-- First tick: engine utilization needs two samples (100ns-timer rate
-  counters), so `gpu_load`/`decoder_util`/`encoder_util` are empty on
-  the very first row.
-- Multi-adapter: each tick reports the adapter with the largest
-  dedicated VRAM usage; on an iGPU + dGPU box the dGPU wins as soon as
-  a workload allocates on it.
 
 ## Known limitations (documented, not bugs)
 

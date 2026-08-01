@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>nvGPUMonitor</AssemblyName>
     <ApplicationIcon>nvGPUMonitor.ico</ApplicationIcon>
-    <Version>0.9.0</Version>
+    <Version>0.10.2</Version>
     <Company>nvGPUMonitor contributors</Company>
     <Copyright>Copyright (C) 2026 nvGPUMonitor contributors</Copyright>
   </PropertyGroup>

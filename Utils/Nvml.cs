@@ -27,5 +27,6 @@ namespace nvGPUMonitor.Utils
         [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetCurrPcieLinkWidth(IntPtr device, out uint currLinkWidth);
         [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetDecoderUtilization(IntPtr device, out uint utilization, out uint samplingPeriodUs);
         [DllImport(DllName, CallingConvention=CallingConvention.Cdecl)] public static extern Return nvmlDeviceGetEncoderUtilization(IntPtr device, out uint utilization, out uint samplingPeriodUs);
+        [DllImport(DllName, CallingConvention=CallingConvention.Cdecl, CharSet=CharSet.Ansi)] public static extern Return nvmlDeviceGetName(IntPtr device, System.Text.StringBuilder name, uint length);
     }
 }
